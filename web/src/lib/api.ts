@@ -1,4 +1,4 @@
-import type { Chunk, Paginated, RetrievedPassage } from "./types";
+import type { Chunk, ChunkIngestRequest, ChunkStrategy, Paginated, RetrievedPassage } from "./types";
 
 export type TokenResponse = {
   access_token: string;
@@ -52,7 +52,7 @@ export type EvalItem = {
   detail?: string;
 };
 
-export type { Chunk, Paginated, RetrievedPassage };
+export type { Chunk, ChunkIngestRequest, ChunkStrategy, Paginated, RetrievedPassage };
 
 const TOKEN_KEY = "playground_token";
 
@@ -135,6 +135,11 @@ export const client = {
       body: JSON.stringify({ name, system_instruction }),
     }),
   getAgent: (id: string) => api<Agent>(`/agents/${id}`),
+  updateAgent: (id: string, body: { name?: string; system_instruction?: string }) =>
+    api<Agent>(`/agents/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   listDocuments: (agentId: string) => api<Document[]>(`/agents/${agentId}/documents`),
   listAgentChunks: async (agentId: string, page = 1, pageSize = 10) =>
     asPaginated(
@@ -158,6 +163,11 @@ export const client = {
     body.append("file", file);
     return api<Document>(`/agents/${agentId}/documents`, { method: "POST", body });
   },
+  ingestDocument: (agentId: string, documentId: string, config: ChunkIngestRequest) =>
+    api<Document>(`/agents/${agentId}/documents/${documentId}/ingest`, {
+      method: "POST",
+      body: JSON.stringify(config),
+    }),
   createSession: (agent_id: string) =>
     api<{ id: string }>("/sessions", {
       method: "POST",

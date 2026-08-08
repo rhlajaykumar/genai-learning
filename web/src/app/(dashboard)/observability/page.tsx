@@ -1,14 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { AgentSelector } from "@/components/AgentSelector";
 import { Pagination } from "@/components/Pagination";
-import { Trace, client, getToken } from "@/lib/api";
+import { Trace, client } from "@/lib/api";
 
-export default function TracesPage() {
-  const params = useParams<{ id: string }>();
-  const router = useRouter();
+export default function ObservabilityPage() {
+  const [agentId, setAgentId] = useState("");
   const [traces, setTraces] = useState<Trace[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -18,35 +16,44 @@ export default function TracesPage() {
   const pageSize = 10;
 
   const load = useCallback(async () => {
+    if (!agentId) {
+      setTraces([]);
+      setTotal(0);
+      return;
+    }
     setError(null);
     try {
-      const data = await client.listTraces(params.id, page, pageSize);
+      const data = await client.listTraces(agentId, page, pageSize);
       setTraces(data.items ?? []);
       setTotalPages(data.total_pages ?? 1);
       setTotal(data.total ?? 0);
     } catch (err) {
       setTraces([]);
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(err instanceof Error ? err.message : "Failed to load traces");
     }
-  }, [params.id, page]);
+  }, [agentId, page]);
 
   useEffect(() => {
-    if (!getToken()) {
-      router.replace("/login");
-      return;
-    }
     void load();
-  }, [load, router]);
+  }, [load]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [agentId]);
 
   return (
-    <main className="stack">
-      <div className="nav">
-        <div className="brand">Execution traces</div>
-        <Link href={`/agents/${params.id}`}>Back to agent</Link>
+    <>
+      <div className="page-header">
+        <h1 className="page-title">Observability</h1>
       </div>
-      {error ? <p className="error">{error}</p> : null}
+
       <section className="panel stack">
-        {(traces ?? []).length === 0 ? (
+        <AgentSelector value={agentId} onChange={setAgentId} />
+        {error ? <p className="error">{error}</p> : null}
+
+        {!agentId ? (
+          <p className="muted">Select an agent to view execution traces.</p>
+        ) : traces.length === 0 ? (
           <p className="muted">No traces yet. Chat with the agent first.</p>
         ) : (
           traces.map((t) => (
@@ -115,6 +122,6 @@ export default function TracesPage() {
           onPageChange={setPage}
         />
       </section>
-    </main>
+    </>
   );
 }

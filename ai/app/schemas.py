@@ -5,6 +5,8 @@ from math import ceil
 from typing import Generic, TypeVar
 from uuid import UUID
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
@@ -64,6 +66,17 @@ class UserOut(BaseModel):
 class AgentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     system_instruction: str = Field(default="", max_length=20_000)
+
+
+class AgentUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    system_instruction: str | None = Field(default=None, max_length=20_000)
+
+
+class ChunkIngestRequest(BaseModel):
+    strategy: Literal["fixed", "sentence", "paragraph"] = "fixed"
+    chunk_size: int = Field(default=800, ge=100, le=8000)
+    chunk_overlap: int = Field(default=100, ge=0, le=2000)
 
 
 class AgentOut(BaseModel):

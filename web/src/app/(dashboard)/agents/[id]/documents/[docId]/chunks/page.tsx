@@ -2,19 +2,18 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Pagination } from "@/components/Pagination";
-import { Chunk, client, getToken } from "@/lib/api";
+import { Chunk, client } from "@/lib/api";
 
 export default function DocumentChunksPage() {
   const params = useParams<{ id: string; docId: string }>();
-  const router = useRouter();
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const pageSize = 10;
 
   const load = useCallback(async () => {
@@ -39,35 +38,34 @@ export default function DocumentChunksPage() {
   }, [params.id, params.docId, page]);
 
   useEffect(() => {
-    if (!getToken()) {
-      router.replace("/login");
-      return;
-    }
     void load();
-  }, [load, router]);
+  }, [load]);
 
   return (
-    <main className="stack">
-      <div className="nav">
-        <div className="brand">Document chunks</div>
-        <Link href={`/agents/${params.id}`}>Back to agent</Link>
+    <>
+      <div className="page-header">
+        <h1 className="page-title">Document chunks</h1>
+        <Link href={`/agents/${params.id}/chunks`} className="button secondary">
+          All agent chunks
+        </Link>
       </div>
+
       {error ? <p className="error">{error}</p> : null}
+
       <section className="panel stack">
         {loading ? (
           <p className="muted">Loading chunks…</p>
-        ) : (chunks ?? []).length === 0 ? (
-          <p className="muted">
-            No chunks for this document. Re-upload the file if ingest failed, or
-            check you are logged in as the agent owner.
-          </p>
+        ) : chunks.length === 0 ? (
+          <p className="muted">No chunks for this document yet.</p>
         ) : (
           chunks.map((chunk) => (
             <article key={chunk.id} className="bubble">
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <strong>Chunk #{chunk.chunk_index}</strong>
-                <span className="muted">{chunk.id.slice(0, 8)}…</span>
-              </div>
+              <strong>
+                Chunk #{chunk.chunk_index}
+                {typeof chunk.metadata?.strategy === "string"
+                  ? ` · ${chunk.metadata.strategy}`
+                  : ""}
+              </strong>
               <p style={{ whiteSpace: "pre-wrap", margin: "0.5rem 0 0" }}>
                 {chunk.content}
               </p>
@@ -81,6 +79,6 @@ export default function DocumentChunksPage() {
           onPageChange={setPage}
         />
       </section>
-    </main>
+    </>
   );
 }

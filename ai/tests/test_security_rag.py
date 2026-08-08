@@ -6,6 +6,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.rag.chunking import chunk_fixed, chunk_paragraphs, chunk_sentences, split_text
 from app.rag.ingest import chunk_text, checksum_bytes
 from app.rag.factory import get_retriever
 from app.core.config import settings
@@ -31,6 +32,19 @@ def test_chunk_text() -> None:
     chunks = chunk_text(text, chunk_size=40, overlap=5)
     assert len(chunks) >= 2
     assert all(chunks)
+
+
+def test_chunk_strategies() -> None:
+    text = "First sentence. Second sentence! Third sentence?\n\nParagraph two starts here."
+    fixed = split_text(text, strategy="fixed", chunk_size=40, overlap=5)
+    sentences = split_text(text, strategy="sentence", chunk_size=80, overlap=10)
+    paragraphs = split_text(text, strategy="paragraph", chunk_size=80, overlap=10)
+    assert fixed
+    assert sentences
+    assert paragraphs
+    assert chunk_sentences(text, 80, 10)
+    assert chunk_paragraphs(text, 80, 10)
+    assert chunk_fixed(text, 40, 5)
 
 
 def test_checksum_stable() -> None:

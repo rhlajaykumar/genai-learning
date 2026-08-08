@@ -1,13 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Agent, clearToken, client, getToken } from "@/lib/api";
+import { client } from "@/lib/api";
 
-export default function AgentsPage() {
+export default function NewAgentPage() {
   const router = useRouter();
-  const [agents, setAgents] = useState<Agent[]>([]);
   const [name, setName] = useState("");
   const [instruction, setInstruction] = useState(
     "You are a helpful assistant. Prefer answers grounded in uploaded documents.",
@@ -15,25 +13,12 @@ export default function AgentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!getToken()) {
-      router.replace("/login");
-      return;
-    }
-    client
-      .listAgents()
-      .then(setAgents)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
-  }, [router]);
-
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
       const agent = await client.createAgent(name, instruction);
-      setAgents((prev) => [agent, ...prev]);
-      setName("");
       router.push(`/agents/${agent.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
@@ -42,37 +27,13 @@ export default function AgentsPage() {
     }
   }
 
-  function logout() {
-    clearToken();
-    router.push("/login");
-  }
-
   return (
-    <main className="stack">
-      <div className="nav">
-        <div className="brand">AI Playground</div>
-        <button type="button" className="secondary" onClick={logout}>
-          Log out
-        </button>
+    <>
+      <div className="page-header">
+        <h1 className="page-title">Create new agent</h1>
       </div>
 
       <section className="panel stack">
-        <h1>Your agents</h1>
-        {agents.length === 0 ? (
-          <p className="muted">No agents yet. Create a RAG agent below.</p>
-        ) : (
-          <ul className="stack">
-            {agents.map((agent) => (
-              <li key={agent.id}>
-                <Link href={`/agents/${agent.id}`}>{agent.name}</Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="panel stack">
-        <h2>Create RAG agent</h2>
         <form className="stack" onSubmit={onCreate}>
           <label>
             Name
@@ -92,6 +53,6 @@ export default function AgentsPage() {
           </button>
         </form>
       </section>
-    </main>
+    </>
   );
 }

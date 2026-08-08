@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Pagination } from "@/components/Pagination";
-import { Chunk, client, getToken } from "@/lib/api";
+import { Agent, Chunk, client } from "@/lib/api";
 
 export default function AgentChunksPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
+  const [agent, setAgent] = useState<Agent | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -21,7 +21,11 @@ export default function AgentChunksPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await client.listAgentChunks(params.id, page, pageSize);
+      const [a, data] = await Promise.all([
+        client.getAgent(params.id),
+        client.listAgentChunks(params.id, page, pageSize),
+      ]);
+      setAgent(a);
       setChunks(data.items ?? []);
       setTotalPages(data.total_pages ?? 1);
       setTotal(data.total ?? 0);
@@ -34,27 +38,27 @@ export default function AgentChunksPage() {
   }, [params.id, page]);
 
   useEffect(() => {
-    if (!getToken()) {
-      router.replace("/login");
-      return;
-    }
     void load();
-  }, [load, router]);
+  }, [load]);
 
   return (
-    <main className="stack">
-      <div className="nav">
-        <div className="brand">RAG chunks</div>
-        <Link href={`/agents/${params.id}`}>Back to agent</Link>
+    <>
+      <div className="page-header">
+        <h1 className="page-title">{agent?.name ?? "Agent"} — RAG chunks</h1>
+        <Link href={`/agents/${params.id}`} className="button secondary">
+          Edit agent
+        </Link>
       </div>
+
       {error ? <p className="error">{error}</p> : null}
+
       <section className="panel stack">
         {loading ? (
           <p className="muted">Loading chunks…</p>
-        ) : (chunks ?? []).length === 0 ? (
+        ) : chunks.length === 0 ? (
           <p className="muted">
-            No chunks yet. Upload a document on the agent page and wait for ingest
-            to finish (status: ready).
+            No chunks yet. Upload a document on the agent page, choose a chunking
+            strategy, and run chunking.
           </p>
         ) : (
           chunks.map((chunk) => (
@@ -65,12 +69,15 @@ export default function AgentChunksPage() {
                   {typeof chunk.metadata?.filename === "string"
                     ? ` · ${chunk.metadata.filename}`
                     : ""}
+                  {typeof chunk.metadata?.strategy === "string"
+                    ? ` · ${chunk.metadata.strategy}`
+                    : ""}
                 </strong>
                 <Link
                   href={`/agents/${params.id}/documents/${chunk.document_id}/chunks`}
                   className="muted"
                 >
-                  doc {chunk.document_id.slice(0, 8)}…
+                  View document chunks
                 </Link>
               </div>
               <p style={{ whiteSpace: "pre-wrap", margin: "0.5rem 0 0" }}>
@@ -86,6 +93,6 @@ export default function AgentChunksPage() {
           onPageChange={setPage}
         />
       </section>
-    </main>
+    </>
   );
 }

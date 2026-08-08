@@ -22,3 +22,11 @@ export type RetrievedPassage = {
   text: string;
   source_doc_id: string | null;
 };
+
+export type ChunkStrategy = "fixed" | "sentence" | "paragraph";
+
+export type ChunkIngestRequest = {
+  strategy: ChunkStrategy;
+  chunk_size: number;
+  chunk_overlap: number;
+};

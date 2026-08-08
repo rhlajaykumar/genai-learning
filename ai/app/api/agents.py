@@ -13,7 +13,15 @@ from app.core.config import settings
 from app.core.db import get_session
 from app.models import Agent, Chunk, Document, User
 from app.rag.ingest import checksum_bytes, ingest_document
-from app.schemas import AgentCreate, AgentOut, ChunkOut, DocumentOut, PaginatedResponse
+from app.schemas import (
+    AgentCreate,
+    AgentOut,
+    AgentUpdate,
+    ChunkIngestRequest,
+    ChunkOut,
+    DocumentOut,
+    PaginatedResponse,
+)
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -85,6 +93,26 @@ async def get_agent(
     return await _owned_agent(session, agent_id, user)
 
 
+@router.patch("/{agent_id}", response_model=AgentOut)
+async def update_agent(
+    agent_id: UUID,
+    body: AgentUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> Agent:
+    """Update an owned agent's name and/or system instruction."""
+    agent = await _owned_agent(session, agent_id, user)
+    if body.name is None and body.system_instruction is None:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    if body.name is not None:
+        agent.name = body.name
+    if body.system_instruction is not None:
+        agent.system_instruction = body.system_instruction
+    await session.commit()
+    await session.refresh(agent)
+    return agent
+
+
 @router.post("/{agent_id}/documents", response_model=DocumentOut)
 async def upload_document(
     agent_id: UUID,
@@ -92,7 +120,7 @@ async def upload_document(
     user: Annotated[User, Depends(get_current_user)],
     file: Annotated[UploadFile, File()],
 ) -> Document:
-    """Upload a document, store the original, and ingest into the Retriever."""
+    """Upload a document and store the original (chunk via ingest endpoint)."""
     agent = await _owned_agent(session, agent_id, user)
     data = await file.read()
     if not data:
@@ -112,27 +140,12 @@ async def upload_document(
         storage_path=str(storage_path),
         content_type=file.content_type,
         checksum=checksum_bytes(data),
-        status="processing",
+        status="uploaded",
     )
     session.add(document)
-    await session.flush()
-
-    try:
-        await ingest_document(session, document)
-    except Exception as exc:  # noqa: BLE001
-        document.status = "failed"
-        await session.commit()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Ingest failed: {exc}",
-        ) from exc
-
     await session.commit()
     await session.refresh(document)
-    count_result = await session.execute(
-        select(func.count()).select_from(Chunk).where(Chunk.document_id == document.id)
-    )
-    return _document_out(document, int(count_result.scalar_one()))
+    return _document_out(document, 0)
 
 
 @router.get("/{agent_id}/documents", response_model=list[DocumentOut])
@@ -212,6 +225,45 @@ async def _owned_document(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return document
+
+
+@router.post(
+    "/{agent_id}/documents/{document_id}/ingest",
+    response_model=DocumentOut,
+)
+async def ingest_uploaded_document(
+    agent_id: UUID,
+    document_id: UUID,
+    body: ChunkIngestRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> Document:
+    """Chunk and embed an uploaded document using the selected strategy."""
+    document = await _owned_document(session, agent_id, document_id, user)
+    document.status = "processing"
+    await session.flush()
+    try:
+        await ingest_document(
+            session,
+            document,
+            strategy=body.strategy,
+            chunk_size=body.chunk_size,
+            overlap=body.chunk_overlap,
+        )
+    except Exception as exc:  # noqa: BLE001
+        document.status = "failed"
+        await session.commit()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ingest failed: {exc}",
+        ) from exc
+
+    await session.commit()
+    await session.refresh(document)
+    count_result = await session.execute(
+        select(func.count()).select_from(Chunk).where(Chunk.document_id == document.id)
+    )
+    return _document_out(document, int(count_result.scalar_one()))
 
 
 @router.get(

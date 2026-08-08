@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import hashlib
-import re
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.llm.provider import embed_texts
 from app.models import Document
+from app.rag.chunking import ChunkStrategy, chunk_fixed, split_text
 from app.rag.factory import get_retriever
 
 
@@ -36,41 +35,42 @@ def chunk_text(
     chunk_size: int | None = None,
     overlap: int | None = None,
 ) -> list[str]:
-    """Split text into overlapping character windows."""
-    size = chunk_size or settings.chunk_size
-    ov = overlap if overlap is not None else settings.chunk_overlap
-    cleaned = re.sub(r"\s+", " ", text).strip()
-    if not cleaned:
-        return []
-    if len(cleaned) <= size:
-        return [cleaned]
-    chunks: list[str] = []
-    start = 0
-    while start < len(cleaned):
-        end = start + size
-        chunks.append(cleaned[start:end])
-        if end >= len(cleaned):
-            break
-        start = max(0, end - ov)
-    return chunks
+    """Split text into overlapping character windows (fixed strategy)."""
+    from app.core.config import settings
+
+    return chunk_fixed(
+        text,
+        chunk_size or settings.chunk_size,
+        overlap if overlap is not None else settings.chunk_overlap,
+    )
 
 
 async def ingest_document(
     session: AsyncSession,
     document: Document,
+    *,
+    strategy: ChunkStrategy = "fixed",
+    chunk_size: int | None = None,
+    overlap: int | None = None,
 ) -> None:
     """Read stored original, chunk, embed, and write via Retriever."""
     path = Path(document.storage_path)
     text = read_document_text(path, document.content_type)
-    pieces = chunk_text(text)
+    pieces = split_text(text, strategy=strategy, chunk_size=chunk_size, overlap=overlap)
     if not pieces:
         document.status = "empty"
         await session.flush()
         return
 
     embeddings = await embed_texts(pieces)
+    chunk_meta = {
+        "filename": document.filename,
+        "strategy": strategy,
+        "chunk_size": chunk_size,
+        "chunk_overlap": overlap,
+    }
     payload: list[tuple[str, list[float], dict[str, Any]]] = [
-        (piece, emb, {"filename": document.filename, "chunk_index": i})
+        (piece, emb, {**chunk_meta, "chunk_index": i})
         for i, (piece, emb) in enumerate(zip(pieces, embeddings, strict=True))
     ]
     retriever = get_retriever(session)
