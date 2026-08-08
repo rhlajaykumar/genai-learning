@@ -6,7 +6,7 @@ AI Playground monorepo: configure RAG agents, chat with them, inspect traces, an
 
 - **Backend**: Python + FastAPI (`ai/`) via `uv`
 - **Frontend**: Next.js App Router (`web/`)
-- **LLM**: Ollama by default (`nomic-embed-text` + `llama3.1`)
+- **LLM**: Ollama — `nomic-embed-text` + `qwen3:8b` (16GB VRAM-friendly)
 - **Data**: PostgreSQL + pgvector (`db/`)
 - **RAG**: Option 3 — vector RAG now; `Retriever` abstraction for Neo4j later
 

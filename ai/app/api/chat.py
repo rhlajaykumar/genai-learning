@@ -3,8 +3,8 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -14,11 +14,13 @@ from app.schemas import (
     ChatRequest,
     ChatResponse,
     EvalOut,
+    PaginatedResponse,
     SessionCreate,
     SessionOut,
     TraceOut,
 )
 from app.services.chat import run_chat_turn
+from app.services.traces import trace_to_out
 
 router = APIRouter(tags=["chat"])
 
@@ -85,25 +87,70 @@ async def chat(
     )
 
 
-@router.get("/agents/{agent_id}/traces", response_model=list[TraceOut])
+@router.get(
+    "/agents/{agent_id}/traces",
+    response_model=PaginatedResponse[TraceOut],
+)
 async def list_traces(
     agent_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[User, Depends(get_current_user)],
-) -> list[InteractionTrace]:
-    """List interaction traces for an agent's sessions owned by the user."""
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=50)] = 10,
+) -> PaginatedResponse[TraceOut]:
+    """Paginated execution traces for an agent (user message + retrieval + reply)."""
     await _owned_agent(session, agent_id, user)
-    result = await session.execute(
+    base = (
         select(InteractionTrace)
         .join(ChatSession, ChatSession.id == InteractionTrace.session_id)
         .where(
             ChatSession.agent_id == agent_id,
             ChatSession.user_id == user.id,
         )
-        .order_by(InteractionTrace.created_at.desc())
-        .limit(100)
     )
-    return list(result.scalars().all())
+    total_result = await session.execute(
+        select(func.count(InteractionTrace.id))
+        .join(ChatSession, ChatSession.id == InteractionTrace.session_id)
+        .where(
+            ChatSession.agent_id == agent_id,
+            ChatSession.user_id == user.id,
+        )
+    )
+    total = int(total_result.scalar_one())
+    offset = (page - 1) * page_size
+    result = await session.execute(
+        base.order_by(InteractionTrace.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    items = [trace_to_out(row) for row in result.scalars().all()]
+    return PaginatedResponse.build(
+        items, page=page, page_size=page_size, total=total
+    )
+
+
+@router.get("/agents/{agent_id}/traces/{trace_id}", response_model=TraceOut)
+async def get_trace(
+    agent_id: UUID,
+    trace_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> TraceOut:
+    """Get one execution trace with user message and retrieved passages."""
+    await _owned_agent(session, agent_id, user)
+    result = await session.execute(
+        select(InteractionTrace)
+        .join(ChatSession, ChatSession.id == InteractionTrace.session_id)
+        .where(
+            InteractionTrace.id == trace_id,
+            ChatSession.agent_id == agent_id,
+            ChatSession.user_id == user.id,
+        )
+    )
+    trace = result.scalar_one_or_none()
+    if trace is None:
+        raise HTTPException(status_code=404, detail="Trace not found")
+    return trace_to_out(trace)
 
 
 @router.get("/agents/{agent_id}/evals", response_model=list[EvalOut])

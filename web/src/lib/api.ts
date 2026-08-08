@@ -1,3 +1,5 @@
+import type { Chunk, Paginated, RetrievedPassage } from "./types";
+
 export type TokenResponse = {
   access_token: string;
   token_type: string;
@@ -17,6 +19,7 @@ export type Document = {
   agent_id: string;
   filename: string;
   status: string;
+  chunk_count: number;
   created_at: string;
 };
 
@@ -35,6 +38,10 @@ export type Trace = {
   model: string | null;
   error: string | null;
   created_at: string;
+  user_message: string | null;
+  assistant_message: string | null;
+  retrieved_passages: RetrievedPassage[];
+  llm_provider: string | null;
 };
 
 export type EvalItem = {
@@ -44,6 +51,8 @@ export type EvalItem = {
   status: string;
   detail?: string;
 };
+
+export type { Chunk, Paginated, RetrievedPassage };
 
 const TOKEN_KEY = "playground_token";
 
@@ -85,6 +94,29 @@ async function api<T>(
   return res.json() as Promise<T>;
 }
 
+function pageQuery(page: number, pageSize: number) {
+  return `page=${page}&page_size=${pageSize}`;
+}
+
+function asPaginated<T>(data: Paginated<T> | T[]): Paginated<T> {
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      page: 1,
+      page_size: data.length,
+      total: data.length,
+      total_pages: 1,
+    };
+  }
+  return {
+    items: data.items ?? [],
+    page: data.page ?? 1,
+    page_size: data.page_size ?? 10,
+    total: data.total ?? 0,
+    total_pages: data.total_pages ?? 1,
+  };
+}
+
 export const client = {
   signup: (username: string, password: string) =>
     api<TokenResponse>("/auth/signup", {
@@ -104,6 +136,23 @@ export const client = {
     }),
   getAgent: (id: string) => api<Agent>(`/agents/${id}`),
   listDocuments: (agentId: string) => api<Document[]>(`/agents/${agentId}/documents`),
+  listAgentChunks: async (agentId: string, page = 1, pageSize = 10) =>
+    asPaginated(
+      await api<Paginated<Chunk> | Chunk[]>(
+        `/agents/${agentId}/chunks?${pageQuery(page, pageSize)}`,
+      ),
+    ),
+  listDocumentChunks: async (
+    agentId: string,
+    documentId: string,
+    page = 1,
+    pageSize = 10,
+  ) =>
+    asPaginated(
+      await api<Paginated<Chunk> | Chunk[]>(
+        `/agents/${agentId}/documents/${documentId}/chunks?${pageQuery(page, pageSize)}`,
+      ),
+    ),
   uploadDocument: (agentId: string, file: File) => {
     const body = new FormData();
     body.append("file", file);
@@ -119,6 +168,13 @@ export const client = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
-  listTraces: (agentId: string) => api<Trace[]>(`/agents/${agentId}/traces`),
+  listTraces: async (agentId: string, page = 1, pageSize = 10) =>
+    asPaginated(
+      await api<Paginated<Trace> | Trace[]>(
+        `/agents/${agentId}/traces?${pageQuery(page, pageSize)}`,
+      ),
+    ),
+  getTrace: (agentId: string, traceId: string) =>
+    api<Trace>(`/agents/${agentId}/traces/${traceId}`),
   listEvals: (agentId: string) => api<EvalItem[]>(`/agents/${agentId}/evals`),
 };

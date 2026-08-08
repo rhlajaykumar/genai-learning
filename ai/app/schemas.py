@@ -1,9 +1,39 @@
 """Pydantic request/response schemas."""
 
 from datetime import datetime
+from math import ceil
+from typing import Generic, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+T = TypeVar("T")
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: list[T]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
+
+    @classmethod
+    def build(
+        cls,
+        items: list[T],
+        *,
+        page: int,
+        page_size: int,
+        total: int,
+    ) -> "PaginatedResponse[T]":
+        pages = ceil(total / page_size) if page_size else 0
+        return cls(
+            items=items,
+            page=page,
+            page_size=page_size,
+            total=total,
+            total_pages=max(pages, 1) if total else 0,
+        )
 
 
 class SignupRequest(BaseModel):
@@ -50,6 +80,7 @@ class DocumentOut(BaseModel):
     agent_id: UUID
     filename: str
     status: str
+    chunk_count: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -95,6 +126,29 @@ class TraceOut(BaseModel):
     retrieved_chunk_ids: list[UUID]
     model: str | None
     error: str | None
+    created_at: datetime
+    user_message: str | None = None
+    assistant_message: str | None = None
+    retrieved_passages: list["RetrievedPassageOut"] = Field(default_factory=list)
+    llm_provider: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class RetrievedPassageOut(BaseModel):
+    chunk_id: UUID | None = None
+    score: float
+    text: str
+    source_doc_id: UUID | None = None
+
+
+class ChunkOut(BaseModel):
+    id: UUID
+    document_id: UUID
+    agent_id: UUID
+    content: str
+    chunk_index: int
+    metadata: dict = Field(default_factory=dict)
     created_at: datetime
 
     model_config = {"from_attributes": True}

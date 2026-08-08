@@ -9,7 +9,7 @@ FastAPI service for auth, RAG agents, chat, traces, and evals placeholders.
 ```bash
 # Ensure Ollama is running with models:
 #   ollama pull nomic-embed-text
-#   ollama pull llama3.1
+#   ollama pull qwen3:8b
 
 # From repo root — start Postgres + migrate
 cd db
@@ -28,10 +28,14 @@ uv run uvicorn app.main:app --reload --port 8000
 ```env
 LLM_PROVIDER=ollama
 OLLAMA_BASE_URL=http://127.0.0.1:11434
-TEXT_MODEL=llama3.1:latest
+TEXT_MODEL=qwen3:8b
 EMBEDDING_MODEL=nomic-embed-text
 EMBEDDING_DIM=768
+OLLAMA_NUM_CTX=8192
+OLLAMA_EMBED_NUM_CTX=2048
 ```
+
+Tuned for **~16GB VRAM** (embed + chat loaded together). Avoid `llama3.1` — its default 64k context can use ~17GB alone. For a lighter chat model use `llama3.2:1b`.
 
 Other providers: `LLM_PROVIDER=google` (needs `GOOGLE_API_KEY`) or `fake` for offline stubs.
 

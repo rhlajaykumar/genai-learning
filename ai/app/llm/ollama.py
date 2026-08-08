@@ -16,11 +16,14 @@ async def ollama_embed(texts: list[str]) -> list[list[float]]:
     if not texts:
         return []
     url = f"{settings.ollama_base_url.rstrip('/')}/api/embed"
+    payload: dict = {
+        "model": settings.embedding_model,
+        "input": texts,
+        "keep_alive": settings.ollama_keep_alive,
+        "options": {"num_ctx": settings.ollama_embed_num_ctx},
+    }
     async with httpx.AsyncClient(timeout=120.0) as client:
-        response = await client.post(
-            url,
-            json={"model": settings.embedding_model, "input": texts},
-        )
+        response = await client.post(url, json=payload)
         if response.status_code >= 400:
             raise OllamaError(
                 f"Ollama embed failed ({response.status_code}): {response.text}"
@@ -52,6 +55,8 @@ async def ollama_chat(
                 "model": settings.text_model,
                 "messages": messages,
                 "stream": False,
+                "keep_alive": settings.ollama_keep_alive,
+                "options": {"num_ctx": settings.ollama_num_ctx},
             },
         )
         if response.status_code >= 400:

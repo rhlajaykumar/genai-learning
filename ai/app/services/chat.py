@@ -41,6 +41,7 @@ async def run_chat_turn(
     started = time.perf_counter()
     error: str | None = None
     chunk_ids: list[UUID] = []
+    passages: list = []
     reply_text = ""
 
     try:
@@ -77,8 +78,20 @@ async def run_chat_turn(
         model=settings.text_model,
         error=error,
         raw={
+            "user_message_id": str(user_msg.id),
+            "user_message": user_text,
+            "assistant_message": reply_text,
             "passage_count": len(chunk_ids),
             "llm_provider": settings.llm_provider,
+            "retrieved_passages": [
+                {
+                    "chunk_id": str(p.chunk_id) if p.chunk_id else None,
+                    "score": p.score,
+                    "text": p.text,
+                    "source_doc_id": str(p.source_doc_id),
+                }
+                for p in passages
+            ],
         },
     )
     session.add(trace)

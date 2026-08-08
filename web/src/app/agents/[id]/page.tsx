@@ -91,6 +91,7 @@ export default function AgentDetailPage() {
         <div className="brand">{agent?.name ?? "Agent"}</div>
         <div className="row">
           <Link href="/agents">All agents</Link>
+          <Link href={`/agents/${agentId}/chunks`}>RAG chunks</Link>
           <Link href={`/agents/${agentId}/traces`}>Traces</Link>
           <Link href={`/agents/${agentId}/evals`}>Evals</Link>
           <button
@@ -135,6 +136,7 @@ export default function AgentDetailPage() {
               <tr>
                 <th>File</th>
                 <th>Status</th>
+                <th>Chunks</th>
               </tr>
             </thead>
             <tbody>
@@ -142,6 +144,17 @@ export default function AgentDetailPage() {
                 <tr key={d.id}>
                   <td>{d.filename}</td>
                   <td>{d.status}</td>
+                  <td>
+                    {(d.chunk_count ?? 0) > 0 ? (
+                      <Link href={`/agents/${agentId}/documents/${d.id}/chunks`}>
+                        {d.chunk_count} chunk{d.chunk_count === 1 ? "" : "s"}
+                      </Link>
+                    ) : d.status === "ready" ? (
+                      "0"
+                    ) : (
+                      d.status
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
