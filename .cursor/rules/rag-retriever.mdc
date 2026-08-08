@@ -1,0 +1,12 @@
+---
+description: RAG must go through Retriever; keep originals for Neo4j migration
+globs: "**/rag/**/*.py,**/ai/**/*.py"
+alwaysApply: false
+---
+
+# RAG Retriever boundary
+
+- All retrieval/ingest goes through `Retriever` + `get_retriever()` — never raw pgvector SQL in routes/tools
+- Keep uploaded originals (`documents.storage_path`) so Neo4j/graph RAG can re-ingest later
+- Stable `Passage` shape: text, score, source_doc_id, metadata
+- `RETRIEVER_BACKEND=pgvector` for v1; do not add Neo4j until explicitly requested

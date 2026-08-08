@@ -1,0 +1,19 @@
+---
+description: Definition of done before claiming a task is complete
+alwaysApply: true
+---
+
+# Definition of done
+
+Do not mark work complete until applicable items pass:
+
+1. **Behavior** — acceptance checks from the request are met
+2. **Types / lint** — public APIs typed; no obvious type/lint breaks in touched files
+3. **Tests** — new/changed behavior has tests; existing tests still pass (`uv run pytest` in the service)
+4. **Contracts** — API/schema changes update Pydantic models (and callers if in-repo)
+5. **Data** — schema changes land as a new file under `db/migrations/` (never edit applied migrations)
+6. **Config** — new env vars added to that service’s `.env.example`
+7. **Docs** — update README/`AGENTS.md` only when setup or public behavior changed
+8. **Hygiene** — no secrets committed; no dead code left from the change
+
+If blocked (missing secret, unclear scope), say what’s blocked instead of inventing a workaround.

@@ -1,0 +1,40 @@
+---
+description: PostgreSQL as primary store — relational, pgvector, and cache use cases
+globs: "**/*.{sql,py,ts,tsx}"
+alwaysApply: false
+---
+
+# PostgreSQL & pgvector
+
+Postgres is the default store for **relational data**, **vector embeddings** (`pgvector`), **caching**, and related workloads (e.g. rate limits, idempotency keys, job state).
+
+## Schema & migrations
+
+- Manage schema with versioned migrations (Alembic or equivalent)
+- Enable `vector` extension explicitly in migrations
+- Index vectors with an appropriate index (`hnsw` / `ivfflat`) once query patterns are known
+- Use `JSONB` for flexible payloads; keep hot filter columns typed and indexed
+
+```sql
+-- ✅ extension + embedding column
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE document_chunks (
+  id UUID PRIMARY KEY,
+  content TEXT NOT NULL,
+  embedding vector(1536) NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+```
+
+## Caching in Postgres
+
+- Prefer Postgres tables (TTL column + partial index, or `UNLOGGED` where safe) before adding Redis
+- Cache keys should be explicit and invalidatable; store expiry as `timestamptz`
+- Semantic / embedding cache: store query embedding + response; retrieve via similarity threshold
+
+## Access rules
+
+- Parameterized queries only — no string-built SQL with user input
+- Connection pooling for app servers; one clear session-per-request pattern on the backend
+- Don't introduce a separate vector DB or cache service unless Postgres is proven insufficient

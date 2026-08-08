@@ -1,0 +1,43 @@
+---
+description: FastAPI Python backend conventions (uv, typing, routers, DI)
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# FastAPI backend
+
+- Backend framework is **FastAPI** only (uvicorn ASGI); manage deps with **`uv`**
+- Python **3.10+**; use `str | None` (not `Optional[str]`); annotate public functions
+- Imports: stdlib → third-party → local; absolute imports from the package root
+- Google-style docstrings on public APIs
+- Naming: `snake_case` files/functions, `PascalCase` classes, `SCREAMING_SNAKE_CASE` constants
+
+## FastAPI patterns
+
+- Organize routes with `APIRouter`; mount from `app.main`
+- Pydantic `BaseModel` for request/response schemas; `response_model=` on endpoints
+- Use `Depends()` for DB sessions, settings, and auth — never globals for request-scoped state
+- Prefer `async def` handlers for I/O; don't mix sync DB calls into async handlers without a clear pool strategy
+
+```python
+# ✅ GOOD
+router = APIRouter(prefix="/bookings", tags=["bookings"])
+
+@router.get("/{booking_id}", response_model=BookingOut)
+async def get_booking(
+    booking_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> BookingOut:
+    ...
+
+# ❌ BAD — Flask/Django style, no schema, sync without reason
+def get_booking(booking_id):
+    ...
+```
+
+## Data access
+
+- Each microservice talks to **its own** Postgres schema/DB via a single DB layer (SQLAlchemy async or SQLModel)
+- Keep raw SQL in that service's migrations or query modules
+- Use env-based settings (`DATABASE_URL`); never hardcode credentials
+- Do not reach into another service's tables

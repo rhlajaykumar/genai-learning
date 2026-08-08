@@ -1,0 +1,42 @@
+---
+description: Self-contained microservice boundaries and ownership rules
+alwaysApply: true
+---
+
+# Microservices
+
+Build **self-contained microservices**. Each service can be developed, tested, and deployed independently.
+
+## Service ownership
+
+Each service owns:
+
+- Application code and tests
+- `pyproject.toml` + lockfile (`uv`)
+- Settings / `.env.example`
+- Migrations for **its** data
+- Dockerfile / compose fragment as needed
+
+```text
+# ✅ GOOD — isolated service
+ai/
+  app/
+  tests/
+  pyproject.toml
+  .env.example
+
+db/   # shared Postgres infra (compose, migrations) — not a domain service
+```
+
+## Boundaries
+
+- **No** importing another service's internal modules
+- Integrate via versioned HTTP APIs, events, or shared **client** packages only
+- Keep domain models inside the owning service; publish DTOs/contracts at the edge
+- Failures in one service must not require starting unrelated services for unit tests
+
+## Data
+
+- Default: schema-per-service (or DB-per-service) in Postgres
+- Do not join across service databases; fetch via API or project read models deliberately
+- Caching / vectors for a domain live with that service's Postgres usage patterns

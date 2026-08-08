@@ -1,0 +1,26 @@
+---
+description: Testing expectations for services and AI agent code
+globs: "**/tests/**/*,**/*.py,**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Testing
+
+- Every behavior change gets a test in the owning service (`tests/`)
+- FastAPI: prefer `TestClient` / `httpx` against the app; assert status + response shape
+- Domain logic: unit-test pure functions without network or real LLM calls
+- Google ADK: mock model/runner in unit tests; don’t call live Gemini in CI
+- DB: prefer migration apply on clean Postgres in integration jobs; keep unit tests DB-free unless using a test container
+- No flaky sleeps or realtime dependencies in unit tests
+
+```python
+# ✅ GOOD — contract smoke test
+def test_health() -> None:
+    assert client.get("/health").json()["status"] == "ok"
+
+# ❌ BAD — live LLM in unit test
+def test_agent():
+    assert call_gemini("hi")  # network + cost + flake
+```
+
+Run: `cd <service> && uv run pytest`

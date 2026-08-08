@@ -1,0 +1,42 @@
+---
+description: Google ADK conventions for creating and running AI agents
+globs: "**/ai/**/*.py,**/agents/**/*.py"
+alwaysApply: false
+---
+
+# Google ADK agents
+
+Use **Google ADK** (`google.adk`) to build agents — not LangChain, CrewAI, or custom agent loops unless explicitly requested.
+
+## Agent definition
+
+- Define agents with `Agent` from `google.adk.agents`
+- Tools are plain Python functions (not tool classes)
+- Keep instructions, model name, and tool lists explicit and readable
+- Put agent modules in the owning microservice (or a dedicated AI service); keep eval harnesses separate
+- Do not import another service's agent internals — expose capabilities via that service's API
+
+```python
+# ✅ GOOD
+from google.adk.agents import Agent
+
+root_agent = Agent(
+    model=TEXT_MODEL,
+    name="booking_agent",
+    description="Helps users search and manage bookings.",
+    instruction="You are a booking assistant...",
+    tools=[search_availability, create_booking],
+)
+```
+
+## Runtime
+
+- Execute with ADK `Runner` + session services
+- Use `InMemorySessionService` only for local/dev; prefer durable session storage (e.g. Postgres) for real deployments
+- Expose agents to clients via FastAPI routes/WebSockets — don't bury HTTP in agent modules
+
+## Config & secrets
+
+- Model IDs and voice settings via env (`GOOGLE_API_KEY`, `TEXT_MODEL`, etc.)
+- Never hardcode API keys
+- Keep prompts/instructions versioned in code or dedicated prompt modules under `ai/`

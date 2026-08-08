@@ -1,0 +1,27 @@
+---
+description: Core stack and architecture for this booking monorepo
+alwaysApply: true
+---
+
+# Project stack
+
+- **Architecture**: Multiple **self-contained microservices** in one monorepo (each owns its code, deps, config, and deployable unit)
+- **Backend**: Python + **FastAPI** per service (manage deps with `uv`)
+- **Frontend**: Next.js (App Router, TypeScript) — may be one or more apps
+- **AI agents / LLM**: **Ollama** by default (local chat + embeddings); Google optional via `LLM_PROVIDER=google`. Agent framework remains **Google ADK** where used.
+- **Data**: PostgreSQL is the system of record — also used for **pgvector** embeddings, **caching**, sessions, and job/state storage when appropriate. Prefer Postgres over Redis/another store unless there is a clear need.
+
+## Microservices expectations
+
+- One service = one folder with its own `pyproject.toml` / `Dockerfile` / `.env.example` (e.g. `ai/`)
+- Shared DB infra lives in `db/` (Docker Postgres, migrations, docs) — not domain logic
+- No cross-service imports of internal modules — communicate via HTTP/events/contracts only
+- Prefer separate DB schemas (or databases) per service; share data through APIs, not foreign tables across services
+- Shared libraries only for truly generic code (types, clients, utils) — never leak domain logic across service boundaries
+- Do not invent sample services unless asked
+
+## Cross-cutting
+
+- Never commit secrets; use `.env` / `.env.example` per service
+- Prefer typed interfaces at API boundaries (Pydantic ↔ TypeScript types or OpenAPI)
+- Vector search, RAG, and semantic cache belong in Postgres (`pgvector`), not a separate vector DB by default

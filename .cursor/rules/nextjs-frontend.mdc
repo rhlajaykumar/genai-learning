@@ -1,0 +1,30 @@
+---
+description: Next.js App Router + TypeScript frontend conventions
+globs: "**/*.{ts,tsx,js,jsx}"
+alwaysApply: false
+---
+
+# Next.js frontend
+
+- **App Router** + **TypeScript**; Server Components by default, Client Components only when needed (`"use client"`)
+- Colocate route UI under `app/`; shared UI in `components/`; API clients/helpers in `lib/`
+- Prefer server-side data fetching for authenticated/booking data; avoid exposing secrets to the client
+
+## Patterns
+
+- Typed props and API responses; no `any` unless justified
+- Keep forms and interactive booking flows as Client Components; presentational pages as Server Components
+- Call the Python backend via a thin typed client — don't duplicate business logic in the frontend
+
+```tsx
+// ✅ Server Component fetches; client only for interaction
+export default async function BookingPage({ params }: { params: { id: string } }) {
+  const booking = await getBooking(params.id);
+  return <BookingDetail booking={booking} />;
+}
+```
+
+## Style
+
+- Follow existing design system if present; otherwise keep UI minimal and consistent
+- Avoid overbuilding dashboards or card grids unless the product requires them

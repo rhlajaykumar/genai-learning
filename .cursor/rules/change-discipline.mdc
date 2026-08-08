@@ -1,0 +1,19 @@
+---
+description: Keep AI-assisted changes small, scoped, and non-drifting
+alwaysApply: true
+---
+
+# Change discipline
+
+- Do **only** what was asked — no drive-by refactors, renames, or “while we’re here” cleanups
+- Prefer extending an existing module over adding a new abstraction or folder
+- Match naming, layout, and patterns already used in the touched service
+- Do not add dependencies, docs, or config unless required for the task
+- One concern per change set (one service / one feature slice / one migration)
+- Never cross microservice boundaries via internal imports — use APIs/contracts
+- If requirements are ambiguous, ask before inventing architecture
+
+```text
+✅ GOOD — add route + schema + test in ai/
+❌ BAD  — rewrite unrelated agents, add Redis, invent a shared framework
+```
