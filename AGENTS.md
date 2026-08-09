@@ -29,6 +29,6 @@ Follow `.cursor/rules/` (stack, microservices, change discipline, DoD, RAG retri
 
 ```bash
 cd db && docker compose up -d && ./scripts/migrate.ps1
-cd ai && uv sync --all-extras && uv run pytest && uv run uvicorn app.main:app --reload --port 8000
+cd ai && uv sync --all-extras && uv run pytest && uv run uvicorn app.main:app --reload --port 8001
 cd web && npm run dev
 ```

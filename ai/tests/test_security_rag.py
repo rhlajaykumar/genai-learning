@@ -7,7 +7,7 @@ from app.core.security import (
     verify_password,
 )
 from app.rag.chunking import chunk_fixed, chunk_paragraphs, chunk_sentences, split_text
-from app.rag.ingest import chunk_text, checksum_bytes
+from app.rag.ingest import chunk_text, checksum_bytes, read_document_text
 from app.rag.factory import get_retriever
 from app.core.config import settings
 from uuid import uuid4
@@ -45,6 +45,22 @@ def test_chunk_strategies() -> None:
     assert chunk_sentences(text, 80, 10)
     assert chunk_paragraphs(text, 80, 10)
     assert chunk_fixed(text, 40, 5)
+
+
+def test_read_document_text_pdf(tmp_path, monkeypatch) -> None:
+    path = tmp_path / "policy.pdf"
+    path.write_bytes(b"%PDF-1.4")
+
+    class FakePage:
+        def extract_text(self) -> str:
+            return "Refund within 30 days."
+
+    class FakeReader:
+        pages = [FakePage()]
+
+    monkeypatch.setattr("pypdf.PdfReader", lambda _: FakeReader())
+    text = read_document_text(path, "application/pdf")
+    assert "Refund within 30 days." in text
 
 
 def test_checksum_stable() -> None:

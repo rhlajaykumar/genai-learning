@@ -250,12 +250,17 @@ async def ingest_uploaded_document(
             chunk_size=body.chunk_size,
             overlap=body.chunk_overlap,
         )
+    except ValueError as exc:
+        document.status = "failed"
+        await session.commit()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         document.status = "failed"
         await session.commit()
+        message = str(exc).strip() or f"{type(exc).__name__} (no details)"
         raise HTTPException(
             status_code=500,
-            detail=f"Ingest failed: {exc}",
+            detail=f"Ingest failed: {message}",
         ) from exc
 
     await session.commit()

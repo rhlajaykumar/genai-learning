@@ -55,6 +55,7 @@ export type EvalItem = {
 export type { Chunk, ChunkIngestRequest, ChunkStrategy, Paginated, RetrievedPassage };
 
 const TOKEN_KEY = "playground_token";
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://127.0.0.1:8001";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -92,6 +93,38 @@ async function api<T>(
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+async function apiAtOrigin<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(options.headers);
+  const token = getToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  // Bypass Next.js /api rewrite for uploads, ingest, and chat (large/slow bodies).
+  const res = await fetch(`${API_ORIGIN}${path}`, { ...options, headers });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const data = await res.json();
+      detail = data.detail ?? JSON.stringify(data);
+    } catch {
+      /* ignore */
+    }
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+async function apiUpload<T>(path: string, file: File): Promise<T> {
+  const body = new FormData();
+  body.append("file", file);
+  return apiAtOrigin<T>(path, { method: "POST", body });
 }
 
 function pageQuery(page: number, pageSize: number) {
@@ -158,13 +191,10 @@ export const client = {
         `/agents/${agentId}/documents/${documentId}/chunks?${pageQuery(page, pageSize)}`,
       ),
     ),
-  uploadDocument: (agentId: string, file: File) => {
-    const body = new FormData();
-    body.append("file", file);
-    return api<Document>(`/agents/${agentId}/documents`, { method: "POST", body });
-  },
+  uploadDocument: (agentId: string, file: File) =>
+    apiUpload<Document>(`/agents/${agentId}/documents`, file),
   ingestDocument: (agentId: string, documentId: string, config: ChunkIngestRequest) =>
-    api<Document>(`/agents/${agentId}/documents/${documentId}/ingest`, {
+    apiAtOrigin<Document>(`/agents/${agentId}/documents/${documentId}/ingest`, {
       method: "POST",
       body: JSON.stringify(config),
     }),
@@ -174,7 +204,7 @@ export const client = {
       body: JSON.stringify({ agent_id }),
     }),
   chat: (sessionId: string, message: string) =>
-    api<ChatResponse>(`/sessions/${sessionId}/chat`, {
+    apiAtOrigin<ChatResponse>(`/sessions/${sessionId}/chat`, {
       method: "POST",
       body: JSON.stringify({ message }),
     }),

@@ -9,6 +9,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.llm.provider import embed_texts
 from app.models import Document
 from app.rag.chunking import ChunkStrategy, chunk_fixed, split_text
@@ -21,13 +22,32 @@ def checksum_bytes(data: bytes) -> str:
 
 
 def read_document_text(path: Path, content_type: str | None = None) -> str:
-    """Extract plain text from an uploaded file (txt/md/pdf-light)."""
+    """Extract plain text from an uploaded file (txt/md/csv/json/pdf)."""
     suffix = path.suffix.lower()
+    if suffix == ".pdf" or content_type == "application/pdf":
+        return _read_pdf_text(path)
     if suffix in {".txt", ".md", ".markdown", ".csv", ".json"} or (
         content_type and content_type.startswith("text/")
     ):
         return path.read_text(encoding="utf-8", errors="replace")
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _read_pdf_text(path: Path) -> str:
+    from pypdf import PdfReader
+    from pypdf.errors import PdfReadError
+
+    try:
+        reader = PdfReader(str(path))
+    except PdfReadError as exc:
+        raise ValueError(f"Could not read PDF: {exc}") from exc
+
+    parts: list[str] = []
+    for page in reader.pages:
+        text = page.extract_text()
+        if text:
+            parts.append(text)
+    return "\n\n".join(parts).strip()
 
 
 def chunk_text(
@@ -36,8 +56,6 @@ def chunk_text(
     overlap: int | None = None,
 ) -> list[str]:
     """Split text into overlapping character windows (fixed strategy)."""
-    from app.core.config import settings
-
     return chunk_fixed(
         text,
         chunk_size or settings.chunk_size,

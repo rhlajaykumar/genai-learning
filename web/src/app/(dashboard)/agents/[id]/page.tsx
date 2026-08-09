@@ -4,18 +4,10 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  Agent,
-  ChunkIngestRequest,
-  ChunkStrategy,
-  Document,
-  client,
-} from "@/lib/api";
-
-const DEFAULT_CHUNK: ChunkIngestRequest = {
-  strategy: "fixed",
-  chunk_size: 800,
-  chunk_overlap: 100,
-};
+  ChunkConfigFields,
+  DEFAULT_CHUNK_CONFIG,
+} from "@/components/ChunkConfigFields";
+import { Agent, ChunkIngestRequest, Document, client } from "@/lib/api";
 
 function DocumentChunkPanel({
   agentId,
@@ -27,7 +19,7 @@ function DocumentChunkPanel({
   onUpdated: (doc: Document) => void;
 }) {
   const [open, setOpen] = useState(doc.status === "uploaded");
-  const [config, setConfig] = useState<ChunkIngestRequest>(DEFAULT_CHUNK);
+  const [config, setConfig] = useState<ChunkIngestRequest>(DEFAULT_CHUNK_CONFIG);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,51 +63,15 @@ function DocumentChunkPanel({
         </button>
         {open ? (
           <form className="chunk-form" onSubmit={onIngest}>
-            <div className="row">
-              <label style={{ flex: 1 }}>
-                Strategy
-                <select
-                  value={config.strategy}
-                  onChange={(e) =>
-                    setConfig((c) => ({
-                      ...c,
-                      strategy: e.target.value as ChunkStrategy,
-                    }))
-                  }
-                >
-                  <option value="fixed">Fixed size (characters)</option>
-                  <option value="sentence">Sentence boundaries</option>
-                  <option value="paragraph">Paragraph boundaries</option>
-                </select>
-              </label>
-              <label>
-                Chunk size
-                <input
-                  type="number"
-                  min={100}
-                  max={8000}
-                  value={config.chunk_size}
-                  onChange={(e) =>
-                    setConfig((c) => ({ ...c, chunk_size: Number(e.target.value) }))
-                  }
-                />
-              </label>
-              <label>
-                Overlap
-                <input
-                  type="number"
-                  min={0}
-                  max={2000}
-                  value={config.chunk_overlap}
-                  onChange={(e) =>
-                    setConfig((c) => ({ ...c, chunk_overlap: Number(e.target.value) }))
-                  }
-                />
-              </label>
-            </div>
+            <ChunkConfigFields config={config} onChange={setConfig} />
+            {busy ? (
+              <p className="muted" style={{ margin: 0 }}>
+                Chunking large PDFs can take several minutes. Please keep this tab open.
+              </p>
+            ) : null}
             {error ? <p className="error">{error}</p> : null}
             <button type="submit" disabled={busy}>
-              {busy ? "Chunking…" : doc.chunk_count > 0 ? "Re-chunk document" : "Chunk document"}
+              {busy ? "Chunking… (may take a few minutes)" : doc.chunk_count > 0 ? "Re-chunk document" : "Chunk document"}
             </button>
           </form>
         ) : null}
@@ -227,13 +183,13 @@ export default function AgentDetailPage() {
       <section className="panel stack">
         <h2>Documents</h2>
         <p className="muted">
-          Upload a document, then choose a chunking strategy and run chunking. Chunks
+          Upload a document (.txt, .md, .pdf, etc.), then choose a chunking strategy and run chunking. Chunks
           are embedded and stored for RAG retrieval.
         </p>
         <form className="row" onSubmit={onUpload}>
           <input
             type="file"
-            accept=".txt,.md,.markdown,.csv,.json,text/*"
+            accept=".txt,.md,.markdown,.csv,.json,.pdf,text/*,application/pdf"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
           <button type="submit" disabled={busy || !file}>
