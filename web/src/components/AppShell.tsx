@@ -6,14 +6,23 @@ import { useEffect, useState } from "react";
 import { Agent, clearToken, client, getToken } from "@/lib/api";
 
 function navClass(href: string, pathname: string, exact = false) {
-  const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  const active = exact
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
   return `sidebar-link${active ? " active" : ""}`;
+}
+
+function isAgentStudioPath(pathname: string) {
+  if (pathname === "/agents/new") return true;
+  if (pathname.includes("/chunks") || pathname.includes("/documents")) return false;
+  return /^\/agents\/[^/]+$/.test(pathname);
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
+  const studioMode = isAgentStudioPath(pathname);
 
   useEffect(() => {
     if (!getToken()) {
@@ -26,9 +35,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .catch(() => setAgents([]));
   }, [router, pathname]);
 
-  const agentMatch = pathname.match(/^\/agents\/([^/]+)/);
-  const activeAgentId = agentMatch?.[1] && agentMatch[1] !== "new" ? agentMatch[1] : null;
-
   function logout() {
     clearToken();
     router.push("/login");
@@ -40,14 +46,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-brand">AI Playground</div>
 
         <div className="sidebar-section">
-          <div className="sidebar-label">Agents</div>
+          <div className="sidebar-label">Build</div>
           <Link href="/agents" className={navClass("/agents", pathname, true)}>
-            Agent list
+            Agents
           </Link>
           <Link href="/agents/new" className={navClass("/agents/new", pathname, true)}>
-            Create new agent
+            New agent
           </Link>
-          {agents.map((agent) => (
+          {agents.slice(0, 8).map((agent) => (
             <Link
               key={agent.id}
               href={`/agents/${agent.id}`}
@@ -59,23 +65,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="sidebar-section">
-          <div className="sidebar-label">Observability</div>
+          <div className="sidebar-label">Run</div>
+          <Link href="/chat" className={navClass("/chat", pathname)}>
+            Chat
+          </Link>
+        </div>
+
+        <div className="sidebar-section">
+          <div className="sidebar-label">Monitor</div>
           <Link href="/observability" className={navClass("/observability", pathname)}>
             Traces
           </Link>
-        </div>
-
-        <div className="sidebar-section">
-          <div className="sidebar-label">Evals</div>
           <Link href="/evals" className={navClass("/evals", pathname)}>
-            Eval suites
-          </Link>
-        </div>
-
-        <div className="sidebar-section">
-          <div className="sidebar-label">Chat</div>
-          <Link href="/chat" className={navClass("/chat", pathname)}>
-            Chat
+            Evals
           </Link>
         </div>
 
@@ -86,24 +88,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="app-content">
-        {activeAgentId ? (
-          <nav className="agent-tabs">
-            <Link
-              href={`/agents/${activeAgentId}`}
-              className={pathname === `/agents/${activeAgentId}` ? "active" : ""}
-            >
-              Edit agent
-            </Link>
-            <Link
-              href={`/agents/${activeAgentId}/chunks`}
-              className={pathname.startsWith(`/agents/${activeAgentId}/chunks`) ? "active" : ""}
-            >
-              RAG chunks
-            </Link>
-          </nav>
-        ) : null}
-        {children}
+      <div className={`app-content${studioMode ? " studio-mode" : ""}`}>
+        {studioMode ? children : <div className="app-content-inner">{children}</div>}
       </div>
     </div>
   );

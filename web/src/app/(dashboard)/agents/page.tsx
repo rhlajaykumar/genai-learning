@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AgentCard } from "@/components/studio/AgentCard";
 import { Agent, client } from "@/lib/api";
 
 export default function AgentsPage() {
@@ -18,42 +19,37 @@ export default function AgentsPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Agent list</h1>
+        <div>
+          <h1 className="page-title">Agents</h1>
+          <p className="muted" style={{ margin: "0.35rem 0 0" }}>
+            Build RAG agents in the studio — configure knowledge, chunking, and test live.
+          </p>
+        </div>
         <Link href="/agents/new" className="button">
-          Create new agent
+          New agent
         </Link>
       </div>
 
       {error ? <p className="error">{error}</p> : null}
 
-      <section className="panel stack">
-        {agents.length === 0 ? (
-          <p className="muted">No agents yet. Create your first RAG agent.</p>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Created</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {agents.map((agent) => (
-                <tr key={agent.id}>
-                  <td>
-                    <Link href={`/agents/${agent.id}`}>{agent.name}</Link>
-                  </td>
-                  <td>{new Date(agent.created_at).toLocaleString()}</td>
-                  <td>
-                    <Link href={`/agents/${agent.id}/chunks`}>View chunks</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+      {agents.length === 0 ? (
+        <section className="panel stack">
+          <p className="muted" style={{ margin: 0 }}>
+            No agents yet. Create your first agent to open the guided studio.
+          </p>
+          <div>
+            <Link href="/agents/new" className="button">
+              Create agent
+            </Link>
+          </div>
+        </section>
+      ) : (
+        <div className="agent-grid">
+          {agents.map((agent) => (
+            <AgentCard key={agent.id} agent={agent} />
+          ))}
+        </div>
+      )}
     </>
   );
 }
