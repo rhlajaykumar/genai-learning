@@ -12,7 +12,7 @@ export default function NewAgentPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [instruction, setInstruction] = useState(
-    "You are a helpful assistant. Prefer answers grounded in uploaded documents.",
+    "You are a helpful assistant. Prefer answers grounded in uploaded documents. Always format replies as HTML.",
   );
   const [files, setFiles] = useState<File[]>([]);
   const [chunkConfig, setChunkConfig] = useState<ChunkIngestRequest>(DEFAULT_CHUNK_CONFIG);

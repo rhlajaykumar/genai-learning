@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import time
 from uuid import UUID
 
@@ -20,6 +21,21 @@ def _format_context(passages: list) -> str:
     for i, p in enumerate(passages, start=1):
         parts.append(f"[{i}] (score={p.score:.3f}) {p.text}")
     return "\n\n".join(parts)
+
+
+def _normalize_html_reply(text: str) -> str:
+    """Strip common Markdown fences so replies can be rendered as HTML."""
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+    if "<" not in cleaned:
+        return f"<p>{html.escape(cleaned)}</p>"
+    return cleaned
 
 
 async def run_chat_turn(
@@ -53,11 +69,12 @@ async def run_chat_turn(
             context=context,
             user_message=user_text,
         )
+        reply_text = _normalize_html_reply(reply_text)
     except Exception as exc:  # noqa: BLE001 — capture into trace
         error = str(exc)
         reply_text = (
-            "Sorry, I could not complete that request. "
-            f"Error: {error}"
+            "<p>Sorry, I could not complete that request.</p>"
+            f"<p><strong>Error:</strong> {html.escape(error)}</p>"
         )
 
     latency_ms = int((time.perf_counter() - started) * 1000)

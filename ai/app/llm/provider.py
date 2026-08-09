@@ -7,6 +7,15 @@ import hashlib
 from app.core.config import settings
 
 
+HTML_RESPONSE_RULE = (
+    "Always reply with HTML only (no Markdown, no plain text). "
+    "Use semantic HTML fragments such as <p>, <ul>, <ol>, <li>, <strong>, <em>, "
+    "<h2>, <h3>, <code>, <pre>, <table>, <thead>, <tbody>, <tr>, <th>, <td>, and <br>. "
+    "Do not wrap the reply in <html>, <head>, or <body>. "
+    "Do not use Markdown syntax or fenced code blocks."
+)
+
+
 async def embed_texts(texts: list[str]) -> list[list[float]]:
     """Embed texts using the configured LLM provider."""
     if not texts:
@@ -32,8 +41,9 @@ async def generate_reply(
     """Generate an assistant reply with retrieved context."""
     system = (
         f"{system_instruction.strip()}\n\n"
+        f"{HTML_RESPONSE_RULE}\n\n"
         "Use the following retrieved context when relevant. "
-        "If the context is insufficient, say so briefly.\n\n"
+        "If the context is insufficient, say so briefly in HTML.\n\n"
         f"Context:\n{context}"
     )
     provider = settings.llm_provider.lower().strip()
@@ -45,8 +55,9 @@ async def generate_reply(
         return await _google_generate(system, user_message)
     if provider == "fake":
         return (
-            "(fake provider) Based on retrieved context:\n"
-            f"{context[:1500]}\n\nYou asked: {user_message}"
+            "<p><strong>Fake provider</strong> — based on retrieved context:</p>"
+            f"<pre>{context[:1500]}</pre>"
+            f"<p>You asked: {user_message}</p>"
         )
     raise ValueError(f"Unknown LLM_PROVIDER: {provider}")
 

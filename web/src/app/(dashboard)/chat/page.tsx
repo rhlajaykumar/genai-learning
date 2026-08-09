@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { AgentSelector } from "@/components/AgentSelector";
+import { HtmlMessage } from "@/components/HtmlMessage";
 import { client } from "@/lib/api";
 
 type Msg = { role: string; content: string };
@@ -71,7 +72,11 @@ export default function ChatPage() {
                 messages.map((m, i) => (
                   <div key={`${m.role}-${i}`} className={`bubble ${m.role}`}>
                     <strong>{m.role}</strong>
-                    <div>{m.content}</div>
+                    {m.role === "assistant" ? (
+                      <HtmlMessage html={m.content} />
+                    ) : (
+                      <div style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>
+                    )}
                   </div>
                 ))
               )}
